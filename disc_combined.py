@@ -7,6 +7,7 @@
 # 本ファイルは Himawaria (https://github.com/ruesei-koseki/Himawaria)
 # の disc.py を改変し、bot.py(しりとりbot)と統合したものです。
 # Himawaria由来の部分は Mozilla Public License 2.0 の条件に従い提供されます。
+# 他人に配布するときは、Himawariaの LICENSE(MPL 2.0全文)を同梱してください。
 
 """
 bot.py（しりとりbot）と Himawaria を「同じ1つのDiscord bot」で動かすランナー。
@@ -34,7 +35,9 @@ DiscordのGatewayは、同じトークンで複数のプロセスを同時起動
             └── memory.json
 """
 
+import asyncio
 import datetime
+import logging
 import os
 import random
 import re
@@ -43,6 +46,8 @@ import time
 
 from discord.ext import tasks
 import discord
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -193,6 +198,13 @@ async def speak(result):
                 Message += result + "\n"
         Message = Message[:-1]
         if Message != "":
+            if channel is None:
+                logger.error(
+                    "送信先チャンネルが未初期化です（HIMAWARIA_CHANNEL_ID=%s）。"
+                    "チャンネルIDとボットの閲覧権限を確認してください。",
+                    HIMAWARIA_CHANNEL_ID,
+                )
+                return
             async with channel.typing():
                 yukou = True
                 if len(Message) / 6 / mode >= 1:
@@ -213,10 +225,21 @@ async def speak(result):
                         print("続きを返信します")
                         await speak(nxt)
 
-    except:
-        himawaria_instance.receive("エラー: チャンネルがNoneか、このチャンネルに入る権限がありません", "!system", is_active_learning=is_active_learning)
-        #messages.append(["エラー: チャンネルがNoneか、このチャンネルに入る権限がありません", "!system"])
-        print("エラー: チャンネルがNoneか、このチャンネルに入る権限がありません")
+    except discord.Forbidden:
+        logger.exception(
+            "Discordへの送信が拒否されました（チャンネルID=%s）。"
+            "ボットのチャンネル閲覧・メッセージ送信権限を確認してください。",
+            getattr(channel, "id", HIMAWARIA_CHANNEL_ID),
+        )
+    except discord.HTTPException:
+        logger.exception(
+            "Discordとの通信中にエラーが発生しました（チャンネルID=%s）。",
+            getattr(channel, "id", HIMAWARIA_CHANNEL_ID),
+        )
+    except Exception:
+        # プログラム上の不具合を権限エラーと誤表示せず、元の例外を記録する。
+        # 送信失敗を会話として学習させない。
+        logger.exception("Himawariaの発言処理中にエラーが発生しました。")
 
 
 # =========================================================
@@ -225,9 +248,29 @@ async def speak(result):
 
 async def himawaria_on_ready():
     # Himawaria側の起動処理（disc.py の on_ready と同じ）
-    global lastMessage, messages
+    global lastMessage, messages, channel
     print('ログインしました')
-    cron.start()
+
+    # 【1チャンネル限定対応】起動直後に発言先チャンネルを把握しておく。
+    # これがないと、誰も投稿する前に「沈黙を検知」で自発発言しようとしたとき
+    # channel が None のままなので
+    # 「エラー: チャンネルがNoneか、このチャンネルに入る権限がありません」になる。
+    ch = client.get_channel(HIMAWARIA_CHANNEL_ID)
+    if ch is None:
+        try:
+            ch = await client.fetch_channel(HIMAWARIA_CHANNEL_ID)
+        except discord.HTTPException:
+            ch = None
+    if ch is not None:
+        channel = ch
+        print(f"起動チャンネルを初期化: #{getattr(ch, 'name', HIMAWARIA_CHANNEL_ID)}")
+    else:
+        print(f"警告: チャンネルID {HIMAWARIA_CHANNEL_ID} が見つかりません。")
+
+    # 再接続で on_ready が複数回呼ばれても cron は1回だけ開始する
+    if not cron.is_running():
+        cron.start()
+
     himawaria_instance.receive("通知: 貴方は目を覚ましました。", "!system", is_active_learning=is_active_learning, reply=True)
     lastMessage = ["通知: 貴方は目を覚ましました。", "!system"]
     messages.append(["通知: 貴方は目を覚ましました。", "!system"])
