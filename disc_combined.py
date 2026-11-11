@@ -359,7 +359,7 @@ async def himawaria_on_message(message):
             print(attachment.url)
         message.content += additionals
 
-        if bool(re.search("沈黙モード|黙|だま", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
+        if bool(re.search("沈黙モード|黙って|だまって", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
             himawaria_instance.receive("!command setMode 0", username, is_active_learning=False)
             setMode(0)
             return
