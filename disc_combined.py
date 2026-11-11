@@ -180,20 +180,20 @@ async def speak(result):
                     # 【1チャンネル限定】HIMAWARIA_CHANNEL_ID に固定するため、
                     # チャンネル移動は常に無効化する
                     print("チャンネル移動は無効化されています（HIMAWARIA_CHANNEL_ID に固定）")
-                    himawaria_instance.receive("エラー: チャンネルの移動は無効化されています。", "!system", is_active_learning=is_active_learning)
+                    himawaria_instance.receive("エラー: チャンネルの移動は無効化されています。", "!system", is_active_learning=False, reply=False)
                     messages.append(["エラー: チャンネルの移動は無効化されています。", "!system"])
                 elif com[1] == "ignore":
                     pass
                 elif com[1] == "setMode":
                     setMode(int(com[2]))
                 elif com[1] == "saveMyData":
-                    himawaria_instance.saveData()
+                    himawaria_instance.save_data()
                 elif com[1] == "pin":
                     pin = True
                 elif com[1] == "unpin":
                     pin = False
                 elif com[1] == "saveMyData":
-                    himawaria_instance.saveData()
+                    himawaria_instance.save_data()
             else:
                 Message += result + "\n"
         Message = Message[:-1]
@@ -271,7 +271,7 @@ async def himawaria_on_ready():
     if not cron.is_running():
         cron.start()
 
-    himawaria_instance.receive("通知: 貴方は目を覚ましました。", "!system", is_active_learning=is_active_learning, reply=True)
+    himawaria_instance.receive("通知: 貴方は目を覚ましました。", "!system", is_active_learning=False, reply=True)
     lastMessage = ["通知: 貴方は目を覚ましました。", "!system"]
     messages.append(["通知: 貴方は目を覚ましました。", "!system"])
     dt_now = datetime.datetime.now()
@@ -300,10 +300,10 @@ async def himawaria_on_message(message):
         if message.channel != channel:
             try:
                 print("チャンネルを移動しました: {}".format(message.channel.name))
-                himawaria_instance.receive("!command discMove {} | チャンネル名: {}, カテゴリー: {}, トピック: {}".format(message.channel.id, message.channel.name, message.channel.category, message.channel.topic).replace("\n", " "), username)
+                himawaria_instance.receive("!command discMove {} | チャンネル名: {}, カテゴリー: {}, トピック: {}".format(message.channel.id, message.channel.name, message.channel.category, message.channel.topic).replace("\n", " "), username, is_active_learning=False)
             except:
                 print("チャンネルを移動しました: {}のDM".format(username))
-                himawaria_instance.receive("!command discMove {} | 誰のDMか: {}".format(message.channel.id, username).replace("\n", " "), username)
+                himawaria_instance.receive("!command discMove {} | 誰のDMか: {}".format(message.channel.id, username).replace("\n", " "), username, is_active_learning=False)
             channel = message.channel
             people = [[himawaria_instance.get_settings()["myname"], 0]]
         if message.author == client.user:
@@ -360,19 +360,19 @@ async def himawaria_on_message(message):
         message.content += additionals
 
         if bool(re.search("沈黙モード|黙|だま", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
-            himawaria_instance.receive("!command setMode 0", username)
+            himawaria_instance.receive("!command setMode 0", username, is_active_learning=False)
             setMode(0)
             return
         if bool(re.search("寡黙モード|静かに|しずかに", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
-            himawaria_instance.receive("!command setMode 1", username)
+            himawaria_instance.receive("!command setMode 1", username, is_active_learning=False)
             setMode(1)
             return
         if bool(re.search("通常モード|喋って|話して|しゃべって|はなして", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
-            himawaria_instance.receive("!command setMode 2", username)
+            himawaria_instance.receive("!command setMode 2", username, is_active_learning=False)
             setMode(2)
             return
         if bool(re.search("饒舌モード", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
-            himawaria_instance.receive("!command setMode 3", username)
+            himawaria_instance.receive("!command setMode 3", username, is_active_learning=False)
             setMode(3)
             return
         if bool(re.search("ピン|じっとしてて", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
@@ -385,14 +385,14 @@ async def himawaria_on_message(message):
             await channel.send(helpMessage)
             return
         if bool(re.search("セーブして", message.content)) and bool(re.search(himawaria_instance.get_settings()["mynames"]+"|モジホコリ、", message.content)):
-            himawaria_instance.receive("!command saveMyData", username)
+            himawaria_instance.receive("!command saveMyData", username, is_active_learning=False)
             print("セーブします")
-            himawaria_instance.saveData()
+            himawaria_instance.save_data()
             print("完了")
             return
 
         if hold_message[0]:
-            himawaria_instance.receive("!command ignore", "!system", is_active_learning=True)
+            himawaria_instance.receive("!command ignore", "!system", is_active_learning=False, reply=False)
             himawaria_instance.receive(hold_message[0], hold_message[1], force=True)
             hold_message = [None, None]
 
@@ -542,7 +542,7 @@ async def cron():
                 is_active_learning = False
 
             dt = datetime.datetime.now()
-            himawaria_instance.receive("!command ignore", "!system", is_active_learning=is_active_learning)
+            himawaria_instance.receive("!command ignore", "!system", is_active_learning=False, reply=False)
             pattern = re.compile(r"(0|3)0 : [0-9][0-9]$")
             if bool(pattern.search(dt_now.strftime('%Y/%m/%d %H:%M:%S'))):
                 himawaria_instance.receive(dt_now.strftime('%Y/%m/%d %H:%M:%S'), "!systemClock", is_active_learning=is_active_learning)
